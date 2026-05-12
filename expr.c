@@ -39,6 +39,34 @@ struct ASTnode *array_access(){
     left = mkastunary(A_DEREF, value_at(left->type), left, 0);//解引用
     return left;
 }
+static struct ASTnode *postfix(){
+    struct ASTnode *n;
+    int id;
+    scan(&Token);
+        if(Token.token==T_LPAREN){//如果前面是括号 就是函数调用
+            return funccall();
+        }
+        if(Token.token==T_LBRACKET){//如果是[ 就是数组
+            return array_access();
+        }
+        id=findglob(Text);
+        if(id==-1||Gsym[id].stype != S_VARIABLE){
+            fatals("Unknown variable", Text);
+        }
+        switch(Token.token){
+            case T_INC:
+            scan(&Token);//消耗++ -- 
+            n = mkastleaf(A_POSTINC, Gsym[id].type, id);
+            break;
+            case T_DEC:
+            scan(&Token);
+            n = mkastleaf(A_POSTDEC, Gsym[id].type, id);
+            break;
+            default:
+            n=mkastleaf(A_IDENT,Gsym[id].type,id);
+        }
+        return n;
+}
 
 //识别整数文字，构建叶子节点
 static struct ASTnode *primary(){
@@ -57,20 +85,7 @@ static struct ASTnode *primary(){
         n= mkastleaf(A_STRLIT, P_CHARPTR, id);//生成叶子节点
         break;
         case T_IDENT:
-        scan(&Token);//向前看 
-        if(Token.token==T_LPAREN){//如果前面是括号 就是函数调用
-            return funccall();
-        }
-        if(Token.token==T_LBRACKET){//如果是[ 就是数组
-            return array_access();
-        }
-        reject_token(&Token);//返还
-        id=findglob(Text);
-        if(id==-1){
-            fatals("Unknown variable", Text);
-        }
-        n=mkastleaf(A_IDENT,Gsym[id].type,id);
-        break;
+        return postfix();
         case T_LPAREN:
         scan(&Token);
         n=binexpr(0);
@@ -88,7 +103,15 @@ static int rightassoc(int tokentype){//如果是等号 则是右结合 赋值为
     }
     return 0;
 }
-static int OpPrec[]={0,10,20,20,30,30,40,40,50,50,50,50};//E0F + - * / = != >= <= > <普拉特解析是给不同的符号的权重 来构建ast
+static int OpPrec[] = {
+  0, 10, 20, 30,                // T_EOF, T_ASSIGN, T_LOGOR, T_LOGAND
+  40, 50, 60,                   // T_OR, T_XOR, T_AMPER 
+  70, 70,                       // T_EQ, T_NE
+  80, 80, 80, 80,               // T_LT, T_GT, T_LE, T_GE
+  90, 90,                       // T_LSHIFT, T_RSHIFT
+  100, 100,                     // T_PLUS, T_MINUS
+  110, 110                      // T_STAR, T_SLASH
+};
 //检查我们是否一个二元运算符并返回它的优先级
 //数组只会包含那些具有运算符语义的令牌的优先级，而其他非运算符令牌则不会包含在内
 static int op_precedence(int tokentype){
@@ -125,6 +148,39 @@ struct ASTnode *prefix(){
         fatal("* operator must be followed by an identifier or *");
         tree = mkastunary(A_DEREF, value_at(tree->type), tree, 0);
         break;
+    case T_MINUS:
+    scan(&Token);
+    tree=prefix();
+    tree->rvalue = 1;
+    tree = modify_type(tree, P_INT, 0);
+    tree = mkastunary(A_NEGATE, tree->type, tree, 0);
+    break;
+    case T_INVERT:
+    scan(&Token); tree = prefix();
+    tree->rvalue = 1; // 剥夺左值特权
+    tree = mkastunary(A_INVERT, tree->type, tree, 0);
+    break;
+    case T_LOGNOT:
+    scan(&Token); tree = prefix();
+    tree->rvalue = 1;
+    tree = mkastunary(A_LOGNOT, tree->type, tree, 0);
+    break;
+    case T_INC://++ -- 会写在变量上 替代 所以还是左值
+    scan(&Token);
+    tree=prefix();
+    if(tree->op!=A_IDENT){
+        fatal("++ operator must be followed by an identifier");
+    }
+    tree = mkastunary(A_PREINC, tree->type, tree, 0);
+    break;
+    case T_DEC:
+    scan(&Token);
+    tree=prefix();
+    if(tree->op!=A_IDENT){
+        fatal("-- operator must be followed by an identifier");
+    }
+    tree = mkastunary(A_PREDEC, tree->type, tree, 0);
+    break;
     default:
         tree=primary();
     }

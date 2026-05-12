@@ -27,7 +27,7 @@ struct ASTnode *if_statement(){
      lparen();//if里的左小括号
      condAST=binexpr(0);//给cond里的数字表达式构成树
      if(condAST->op<A_EQ||condAST->op>A_GE){//确保里面是逻辑符号
-          fatal("Bad comparison operator");
+          condAST = mkastunary(A_TOBOOL, condAST->type, condAST, 0);//自动套一个bool
      }
      rparen();
      trueAST=compound_statement();
@@ -43,7 +43,7 @@ struct ASTnode *while_statement(){//while语句
      lparen();
      condAST=binexpr(0);
      if(condAST->op<A_EQ||condAST->op>A_GE)
-     fatal("Bad comparison operator");
+     condAST = mkastunary(A_TOBOOL, condAST->type, condAST, 0);
      rparen();
      bodyAST=compound_statement();
      return (mkastnode(A_WHILE,P_NONE,condAST,NULL,bodyAST,0));
@@ -67,7 +67,7 @@ static struct ASTnode *for_statement(){
      semi();
      condAST=binexpr(0);
      if (condAST->op < A_EQ || condAST->op > A_GE)
-    fatal("Bad comparison operator");
+     condAST = mkastunary(A_TOBOOL, condAST->type, condAST, 0);
      semi();
      postopAST=single_statement();
      rparen();

@@ -77,6 +77,16 @@ static int genWHILE(struct ASTnode *n){
     return cgmul(leftreg,rightreg);
     case A_DIVIDE:
     return cgdiv(leftreg,rightreg);
+    case A_AND:
+    return (cgand(leftreg, rightreg));
+    case A_OR:
+    return (cgor(leftreg, rightreg));
+    case A_XOR:
+    return (cgxor(leftreg, rightreg));
+    case A_LSHIFT:
+    return (cgshl(leftreg, rightreg));
+    case A_RSHIFT:
+    return (cgshr(leftreg, rightreg));
     case A_EQ://比较运算符
     case A_NE:
     case A_LT:
@@ -95,7 +105,7 @@ static int genWHILE(struct ASTnode *n){
     return (cgloadglobstr(n->v.id));
     case A_IDENT://处理 已知变量a的值
     if (n->rvalue||parentASTop==A_DEREF)//如果需要加载值 或者 正在被解引用
-    return (cgloadglob(n->v.id));//则是为从全局变量中读取值生成汇编代码 例如在 y = x + 5; 中读取 x 的值
+    return (cgloadglob(n->v.id,n->op));//则是为从全局变量中读取值生成汇编代码 例如在 y = x + 5; 中读取 x 的值
     else 
     return (NOREG);
     case A_ASSIGN://处理 类似 a=3+5;
@@ -133,6 +143,22 @@ static int genWHILE(struct ASTnode *n){
     rightreg= cgloadint(n->v.size, P_INT);//偏移变量   P_INT请分配一个标准的、全尺寸的通用寄存器（比如 64 位的），把这个数字（size）放进去。因为我马上要拿它跟另一个全尺寸的寄存器做乘法了，别给我搞个 8 位的小寄存器来添乱
      return (cgmul(leftreg, rightreg));
     }
+    case A_POSTINC:
+      return (cgloadglob(n->v.id, n->op));
+    case A_POSTDEC:
+      return (cgloadglob(n->v.id, n->op));
+    case A_PREINC://前缀 在left里
+      return (cgloadglob(n->left->v.id, n->op));
+    case A_PREDEC:
+      return (cgloadglob(n->left->v.id, n->op));
+    case A_NEGATE:
+      return (cgnegate(leftreg));
+    case A_INVERT:
+      return (cginvert(leftreg));
+    case A_LOGNOT:
+      return (cglognot(leftreg));
+    case A_TOBOOL:
+      return (cgboolean(leftreg, parentASTop, label));
     default:
     fatald("Unknown AST operator", n->op);    
     }

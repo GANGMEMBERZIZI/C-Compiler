@@ -54,22 +54,46 @@ int cgloadint(int value,int type){ //value 加载到寄存器的常量数值
     //在 x86 汇编语法（通常是 AT&T 语法）中，$ 符号前缀表示紧随其后的数字是一个 立即数（immediate value）。这意味着这个数字是指令本身的一部分，而不是内存地址或寄存器内容。%d 就是传入的value值 把这个写入out.s文件里 like 10=>  movq 10 ,%r8
     return r; //返回存储寄存器的索引号
 }
-int cgloadglob(int id) {//把变量从内存读入寄存器（Read）。
+int cgloadglob(int id,int op) {//把变量从内存读入寄存器（Read）。
   int r = alloc_register();
   switch (Gsym[id].type) {
     case P_CHAR:
+    if (op == A_PREINC)
+        fprintf(Outfile, "\tincb\t%s(\%%rip)\n", Gsym[id].name);
+      if (op == A_PREDEC)
+        fprintf(Outfile, "\tdecb\t%s(\%%rip)\n", Gsym[id].name);
       fprintf(Outfile, "\tmovzbq\t%s(\%%rip), %s\n", Gsym[id].name,
-              reglist[r]);
+              reglist[r]);//间接寻址 
+      if (op == A_POSTINC)
+        fprintf(Outfile, "\tincb\t%s(\%%rip)\n", Gsym[id].name);
+      if (op == A_POSTDEC)
+        fprintf(Outfile, "\tdecb\t%s(\%%rip)\n", Gsym[id].name);
       break;
     case P_INT:
+      if (op == A_PREINC)
+        fprintf(Outfile, "\tincl\t%s(\%%rip)\n", Gsym[id].name);
+      if (op == A_PREDEC)
+        fprintf(Outfile, "\tdecl\t%s(\%%rip)\n", Gsym[id].name);
       fprintf(Outfile, "\tmovslq\t%s(\%%rip), %s\n", Gsym[id].name,
               reglist[r]);
+      if (op == A_POSTINC)
+        fprintf(Outfile, "\tincl\t%s(\%%rip)\n", Gsym[id].name);
+      if (op == A_POSTDEC)
+        fprintf(Outfile, "\tdecl\t%s(\%%rip)\n", Gsym[id].name);
       break;
     case P_LONG:
     case P_CHARPTR:
     case P_INTPTR:
     case P_LONGPTR:
+    if (op == A_PREINC)
+        fprintf(Outfile, "\tincq\t%s(\%%rip)\n", Gsym[id].name);
+      if (op == A_PREDEC)
+        fprintf(Outfile, "\tdecq\t%s(\%%rip)\n", Gsym[id].name);
       fprintf(Outfile, "\tmovq\t%s(\%%rip), %s\n", Gsym[id].name, reglist[r]);
+      if (op == A_POSTINC)
+        fprintf(Outfile, "\tincq\t%s(\%%rip)\n", Gsym[id].name);
+      if (op == A_POSTDEC)
+        fprintf(Outfile, "\tdecq\t%s(\%%rip)\n", Gsym[id].name);
       break;
     default:
       fatald("Bad type in cgloadglob:", Gsym[id].type);
@@ -105,6 +129,55 @@ int cgdiv(int r1,int r2){//r1/r2
     fprintf(Outfile,"\tmovq\t%%rax,%s\n",reglist[r1]); //将rax商 移动到r1寄存器
     free_register(r2);//释放r2寄存器
     return r1;
+}
+int cgand(int r1,int r2){
+  fprintf(Outfile,"\tandq\t%s,%s\n",reglist[r1],reglist[r2]);
+  free_register(r1);
+  return r2;
+}
+int cgor(int r1, int r2) {
+  fprintf(Outfile, "\torq\t%s, %s\n", reglist[r1], reglist[r2]);
+  free_register(r1); return (r2);
+}
+int cgxor(int r1, int r2) {
+  fprintf(Outfile, "\txorq\t%s, %s\n", reglist[r1], reglist[r2]);
+  free_register(r1); return (r2);
+}
+int cgnegate(int r){
+  fprintf(Outfile,"\tnegq\t%s\n",reglist[r]);
+  return r;
+}
+int cginvert(int r) {
+  fprintf(Outfile, "\tnotq\t%s\n", reglist[r]); return (r);
+}
+int cgshl(int r1, int r2) {//r1 是变量 r2 是移位数
+  fprintf(Outfile, "\tmovb\t%s, %%cl\n", breglist[r2]);//移位数 必须加载到cl寄存器里 为了对齐单字节 用movb
+  fprintf(Outfile, "\tshlq\t%%cl, %s\n", reglist[r1]);
+  free_register(r2);
+  return (r1);
+}
+int cgshr(int r1, int r2) {
+  fprintf(Outfile, "\tmovb\t%s, %%cl\n", breglist[r2]);
+  fprintf(Outfile, "\tshrq\t%%cl, %s\n", reglist[r1]);
+  free_register(r2);
+  return (r1);
+}
+int cglognot(int r){
+  fprintf(Outfile, "\ttest\t%s, %s\n", reglist[r], reglist[r]);//按位与（AND）操作，但它极其克制：绝对不保存计算结果，绝对不破坏寄存器原来的值！它唯一的使命就是根据运算结果疯狂刷新 CPU 的状态标志位（RFLAGS）
+  // 如果 %rax 原来是 0，0 & 0 依然是 0，CPU 的 零标志位（ZF, Zero Flag） 瞬间被高高弹起，设为 1。
+  // 如果 %rax 包含任何非零数据，运算结果非零，ZF 标志位当场被冷血清零为 0。
+  fprintf(Outfile, "\tsete\t%s\n", breglist[r]);//如果 ZF 为 1（说明原值是 0），它极其果断地把单字节寄存器 %al 强行写成 1。
+  //如果 ZF 为 0（说明原值非零），它冷血地把 %al 强行写成 0。
+  fprintf(Outfile, "\tmovzbq\t%s, %s\n", breglist[r], reglist[r]);//把单字节宽展
+}
+int cgboolean(int r,int op,int label){
+  fprintf(Outfile, "\ttest\t%s, %s\n", reglist[r], reglist[r]);//看是0还是非0
+  if(op==A_IF||op==A_WHILE){
+    fprintf(Outfile, "\tje\tL%d\n", label);//je看zf标志位
+  }else {
+    fprintf(Outfile, "\tsetnz\t%s\n", breglist[r]);//如果刚刚的测试发现寄存器非零（ZF 为 0），强行把最低字节 %al 刷成 1；如果是零，刷成 0
+    fprintf(Outfile, "\tmovzbq\t%s, %s\n", breglist[r], reglist[r]);
+}
 }
 void cgprintint(int r){
     fprintf(Outfile,"\tmovq\t%s,%%rdi\n",reglist[r]);//转移到rdi寄存器

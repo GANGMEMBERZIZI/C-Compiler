@@ -1,72 +1,160 @@
 	.text
 	.data
+	.globl	a
+a:	.byte	0
+	.data
+	.globl	b
+b:	.byte	0
+	.data
 	.globl	c
 c:	.byte	0
 	.data
-	.globl	str
-str:	.long	0
-L2:
-	.byte	72
-	.byte	101
-	.byte	108
-	.byte	108
-	.byte	111
-	.byte	32
-	.byte	119
-	.byte	111
-	.byte	114
-	.byte	108
-	.byte	100
-	.byte	10
-	.byte	0
+	.globl	d
+d:	.long	0
+	.data
+	.globl	e
+e:	.long	0
+	.data
+	.globl	f
+f:	.long	0
+	.data
+	.globl	g
+g:	.quad	0
+	.data
+	.globl	h
+h:	.quad	0
+	.data
+	.globl	i
+i:	.quad	0
 	.text
 	.globl	main
-	.type	main, %function
+	.type	main, @function
 main:
-	push	{fp, lr}
-	add	fp, sp, #4
-	sub	sp, sp, #8
-	str	r0, [fp, #-8]
-	mov	r4, #10
-	ldr	r3, .L2+0
-	strb	r4, [r3]
-	ldr	r3, .L2+0
-	ldrb	r4, [r3]
-	mov	r0, r4
-	bl	printint
-	mov	r4, r0
-	ldr	r4, =L2
-	ldr	r3, .L2+4
-	str	r4, [r3]
-L3:
-	ldr	r3, .L2+4
-	ldr	r4, [r3]
-	ldrb	r4, [r4]
-	mov	r5, #0
-	cmp	r4, r5
-	beq	L4
-	ldr	r3, .L2+4
-	ldr	r4, [r3]
-	ldrb	r4, [r4]
-	mov	r0, r4
-	bl	printchar
-	mov	r4, r0
-	ldr	r3, .L2+4
-	ldr	r4, [r3]
-	mov	r5, #1
-	add	r5, r4, r5
-	ldr	r3, .L2+4
-	str	r5, [r3]
-	b	L3
-L4:
-	mov	r4, #0
-	mov	r0, r4
-	b	L1
+	pushq	%rbp
+	movq	%rsp, %rbp
+	movq	$5,%r8
+	movb	%r8b, b(%rip)
+	movq	$7,%r8
+	movb	%r8b, c(%rip)
+	movzbq	b(%rip), %r8
+	movzbq	c(%rip), %r9
+	incb	c(%rip)
+	addq	%r8,%r9
+	movb	%r9b, a(%rip)
+	movzbq	a(%rip), %r8
+	movq	%r8, %rdi
+	call	printint
+	movq	%rax, %r9
+	movq	$5,%r8
+	movl	%r8d, e(%rip)
+	movq	$7,%r8
+	movl	%r8d, f(%rip)
+	movslq	e(%rip), %r8
+	movslq	f(%rip), %r9
+	incl	f(%rip)
+	addq	%r8,%r9
+	movl	%r9d, d(%rip)
+	movslq	d(%rip), %r8
+	movq	%r8, %rdi
+	call	printint
+	movq	%rax, %r9
+	movq	$5,%r8
+	movq	%r8, h(%rip)
+	movq	$7,%r8
+	movq	%r8, i(%rip)
+	movq	h(%rip), %r8
+	movq	i(%rip), %r9
+	incq	i(%rip)
+	addq	%r8,%r9
+	movq	%r9, g(%rip)
+	movq	g(%rip), %r8
+	movq	%r8, %rdi
+	call	printint
+	movq	%rax, %r9
+	movzbq	b(%rip), %r8
+	decb	b(%rip)
+	movzbq	c(%rip), %r9
+	addq	%r8,%r9
+	movb	%r9b, a(%rip)
+	movzbq	a(%rip), %r8
+	movq	%r8, %rdi
+	call	printint
+	movq	%rax, %r9
+	movslq	e(%rip), %r8
+	decl	e(%rip)
+	movslq	f(%rip), %r9
+	addq	%r8,%r9
+	movl	%r9d, d(%rip)
+	movslq	d(%rip), %r8
+	movq	%r8, %rdi
+	call	printint
+	movq	%rax, %r9
+	movq	h(%rip), %r8
+	decq	h(%rip)
+	movq	i(%rip), %r9
+	addq	%r8,%r9
+	movq	%r9, g(%rip)
+	movq	g(%rip), %r8
+	movq	%r8, %rdi
+	call	printint
+	movq	%rax, %r9
+	incb	b(%rip)
+	movzbq	b(%rip), %r8
+	movzbq	c(%rip), %r9
+	addq	%r8,%r9
+	movb	%r9b, a(%rip)
+	movzbq	a(%rip), %r8
+	movq	%r8, %rdi
+	call	printint
+	movq	%rax, %r9
+	incl	e(%rip)
+	movslq	e(%rip), %r8
+	movslq	f(%rip), %r9
+	addq	%r8,%r9
+	movl	%r9d, d(%rip)
+	movslq	d(%rip), %r8
+	movq	%r8, %rdi
+	call	printint
+	movq	%rax, %r9
+	incq	h(%rip)
+	movq	h(%rip), %r8
+	movq	i(%rip), %r9
+	addq	%r8,%r9
+	movq	%r9, g(%rip)
+	movq	g(%rip), %r8
+	movq	%r8, %rdi
+	call	printint
+	movq	%rax, %r9
+	movzbq	b(%rip), %r8
+	decb	c(%rip)
+	movzbq	c(%rip), %r9
+	imulq	%r8,%r9
+	movb	%r9b, a(%rip)
+	movzbq	a(%rip), %r8
+	movq	%r8, %rdi
+	call	printint
+	movq	%rax, %r9
+	movslq	e(%rip), %r8
+	decl	f(%rip)
+	movslq	f(%rip), %r9
+	imulq	%r8,%r9
+	movl	%r9d, d(%rip)
+	movslq	d(%rip), %r8
+	movq	%r8, %rdi
+	call	printint
+	movq	%rax, %r9
+	movq	h(%rip), %r8
+	decq	i(%rip)
+	movq	i(%rip), %r9
+	imulq	%r8,%r9
+	movq	%r9, g(%rip)
+	movq	g(%rip), %r8
+	movq	%r8, %rdi
+	call	printint
+	movq	%rax, %r9
+	movq	$0,%r8
+	movl	%r8d, %eax
+	jmp	L1
 L1:
-	sub	sp, fp, #4
-	pop	{fp, pc}
-	.align	2
-.L2:
-	.word c
-	.word str
-.L3:
+	popq %rbp
+	ret

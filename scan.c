@@ -89,10 +89,20 @@ static int next(){
         t->token = T_E0F;
         return 0;//说明分析到头了 分析完了
         case '+':
-        t->token=T_PLUS;
+        if((c=next())=='+'){
+            t->token=T_INC;
+        }else{
+            putback(c);
+            t->token=T_PLUS;
+        }
         break;
         case '-':
-        t->token=T_MINUS;
+        if((c=next()=='-')){
+            t->token=T_DEC;
+        }else{
+            putback(c);
+            t->token=T_MINUS;
+        }
         break;
         case '*':
         t->token=T_STAR;
@@ -121,6 +131,12 @@ static int next(){
         case ']':
         t->token=T_RBRACKET;
         break;
+        case '~':
+        t->token = T_INVERT;
+        break;
+        case '^':
+        t->token = T_XOR;
+        break;
         case '=':
         if ((c=next())=='='){//匹配==
             t->token=T_EQ;
@@ -133,13 +149,18 @@ static int next(){
         if ((c = next()) == '=') {//不等于
              t->token = T_NE;
         } else {
-             fatalc("Unrecognised character", c);
-    }
-    break;
+             putback(c);
+             t->token = T_LOGNOT;
+        }
+         break;
     case '<':
     if ((c = next()) == '=') {//<=
       t->token = T_LE;
-    } else {
+    }
+    if((c=next())=='<'){
+        t->token=T_LSHIFT;
+    } 
+    else {
       putback(c);
       t->token = T_LT;//<
     }
@@ -147,7 +168,11 @@ static int next(){
   case '>':
     if ((c = next()) == '=') {//>=
       t->token = T_GE;
-    } else {
+    }
+    if((c=next())=='>'){
+        t->token=T_RSHIFT;
+    } 
+    else {
       putback(c);
       t->token = T_GT;//>
     }
@@ -160,6 +185,14 @@ static int next(){
         t->token=T_AMPER;//取地址符
     }
     break;
+    case '|':
+    if ((c = next()) == '|') {
+	t->token = T_LOGOR;
+      } else {
+	putback(c);
+	t->token = T_OR;
+      }
+      break;
     case '\''://   \转义特殊字符 \'表示 单引号本身
     t->intvalue=scanch();//扫描字符值
     t->token=T_INTLIT;//设置token类型为整数字面量
