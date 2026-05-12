@@ -97,7 +97,7 @@ static int next(){
         }
         break;
         case '-':
-        if((c=next()=='-')){
+        if((c=next())=='-'){
             t->token=T_DEC;
         }else{
             putback(c);
@@ -156,11 +156,9 @@ static int next(){
     case '<':
     if ((c = next()) == '=') {//<=
       t->token = T_LE;
-    }
-    if((c=next())=='<'){
-        t->token=T_LSHIFT;
-    } 
-    else {
+    } else if (c == '<') {
+      t->token = T_LSHIFT;
+    } else {
       putback(c);
       t->token = T_LT;//<
     }
@@ -168,11 +166,9 @@ static int next(){
   case '>':
     if ((c = next()) == '=') {//>=
       t->token = T_GE;
-    }
-    if((c=next())=='>'){
-        t->token=T_RSHIFT;
-    } 
-    else {
+    } else if (c == '>') {
+      t->token = T_RSHIFT;
+    } else {
       putback(c);
       t->token = T_GT;//>
     }

@@ -169,6 +169,7 @@ int cglognot(int r){
   fprintf(Outfile, "\tsete\t%s\n", breglist[r]);//如果 ZF 为 1（说明原值是 0），它极其果断地把单字节寄存器 %al 强行写成 1。
   //如果 ZF 为 0（说明原值非零），它冷血地把 %al 强行写成 0。
   fprintf(Outfile, "\tmovzbq\t%s, %s\n", breglist[r], reglist[r]);//把单字节宽展
+	return r;
 }
 int cgboolean(int r,int op,int label){
   fprintf(Outfile, "\ttest\t%s, %s\n", reglist[r], reglist[r]);//看是0还是非0
@@ -178,6 +179,7 @@ int cgboolean(int r,int op,int label){
     fprintf(Outfile, "\tsetnz\t%s\n", breglist[r]);//如果刚刚的测试发现寄存器非零（ZF 为 0），强行把最低字节 %al 刷成 1；如果是零，刷成 0
     fprintf(Outfile, "\tmovzbq\t%s, %s\n", breglist[r], reglist[r]);
 }
+	return r;
 }
 void cgprintint(int r){
     fprintf(Outfile,"\tmovq\t%s,%%rdi\n",reglist[r]);//转移到rdi寄存器

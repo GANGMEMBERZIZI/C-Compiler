@@ -1,22 +1,12 @@
-char *str;
-int   x;
-
+int a;
+int b;
+int c;
 int main() {
-  x= -23; printint(x);
-  printint(-10 * -10);
-
-  x= 1; x= ~x; printint(x);
-
-  x= 2 > 5; printint(x);
-  x= !x; printint(x);
-  x= !x; printint(x);
-
-  x= 13; if (x) { printint(13); }
-  x= 0; if (!x) { printint(14); }
-
-  for (str= "Hello world\n"; *str; str++) {
-    printchar(*str);
-  }
-
+  a= 42; b= 19;
+  printint(a & b);
+  printint(a | b);
+  printint(a ^ b);
+  printint(1 << 3);
+  printint(63 >> 3);
   return(0);
 }
