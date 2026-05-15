@@ -10,49 +10,63 @@ b:	.long	0
 c:	.long	0
 	.text
 	.globl	main
-	.type	main, @function
+	.type	main, %function
 main:
-	pushq	%rbp
-	movq	%rsp, %rbp
-	movq	$42,%r8
-	movl	%r8d, a(%rip)
-	movq	$19,%r8
-	movl	%r8d, b(%rip)
-	movslq	a(%rip), %r8
-	movslq	b(%rip), %r9
-	andq	%r8,%r9
-	movq	%r9, %rdi
-	call	printint
-	movq	%rax, %r8
-	movslq	a(%rip), %r8
-	movslq	b(%rip), %r9
-	orq	%r8, %r9
-	movq	%r9, %rdi
-	call	printint
-	movq	%rax, %r8
-	movslq	a(%rip), %r8
-	movslq	b(%rip), %r9
-	xorq	%r8, %r9
-	movq	%r9, %rdi
-	call	printint
-	movq	%rax, %r8
-	movq	$1,%r8
-	movq	$3,%r9
-	movb	%r9b, %cl
-	shlq	%cl, %r8
-	movq	%r8, %rdi
-	call	printint
-	movq	%rax, %r9
-	movq	$63,%r8
-	movq	$3,%r9
-	movb	%r9b, %cl
-	shrq	%cl, %r8
-	movq	%r8, %rdi
-	call	printint
-	movq	%rax, %r9
-	movq	$0,%r8
-	movl	%r8d, %eax
-	jmp	L1
+	push	{fp, lr}
+	add	fp, sp, #4
+	sub	sp, sp, #8
+	str	r0, [fp, #-8]
+	mov	r4, #42
+	ldr	r3, .L2+0
+	str	r4, [r3]
+	mov	r4, #19
+	ldr	r3, .L2+4
+	str	r4, [r3]
+	ldr	r3, .L2+0
+	ldr	r4, [r3]
+	ldr	r3, .L2+4
+	ldr	r5, [r3]
+	and	r5, r5, r4
+	mov	r0, r5
+	bl	printint
+	mov	r5, r0
+	ldr	r3, .L2+0
+	ldr	r4, [r3]
+	ldr	r3, .L2+4
+	ldr	r5, [r3]
+	orr	r5, r5, r4
+	mov	r0, r5
+	bl	printint
+	mov	r5, r0
+	ldr	r3, .L2+0
+	ldr	r4, [r3]
+	ldr	r3, .L2+4
+	ldr	r5, [r3]
+	eor	r5, r5, r4
+	mov	r0, r5
+	bl	printint
+	mov	r5, r0
+	mov	r4, #1
+	mov	r5, #3
+	lsl	r4, r4, r5
+	mov	r0, r4
+	bl	printint
+	mov	r4, r0
+	mov	r4, #63
+	mov	r5, #3
+	lsr	r4, r4, r5
+	mov	r0, r4
+	bl	printint
+	mov	r4, r0
+	mov	r4, #0
+	mov	r0, r4
+	b	L1
 L1:
-	popq %rbp
-	ret
+	sub	sp, fp, #4
+	pop	{fp, pc}
+	.align	2
+.L2:
+	.word a
+	.word b
+	.word c
+.L3:
