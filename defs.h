@@ -58,10 +58,15 @@ enum{
 enum{//记录定义的是函数还是变量
     S_VARIABLE,S_FUNCTION,S_ARRAY
 };
+enum{
+    C_GLOBAL=1,C_LOCAL
+};
 struct symtable{//符号表
     char *name;//变量的名字
     int type;//记录变量类型
-    int stype;//记录是函数还是变量
+    int stype;//记录是函数还是变量指针
+    int class;//它记录了这个变量是 CGLOBAL（该去 .data 段）、CLOCAL（该去 Stack 堆栈）、还是 CPARAM（参数）。代码生成器（Code Gen）完全看它的脸色来决定往哪写汇编。
     int endlabel; //函数结束标签
     int size;//个数
+    int posn;//posn是相对于rbp的offset
 };

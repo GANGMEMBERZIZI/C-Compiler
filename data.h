@@ -4,14 +4,15 @@
 extern_ int Line;
 extern_ int Putback;
 extern_ int Functionid;
-extern_ int Globs;
+extern_ int Globs;//字符表 全局变量的索引 从0开始
+extern_ int Locls;//字符表 局部变量的索引 从1开始
 extern_ FILE	*Infile;  //FILE 是 C 语言标准库 <stdio.h> 中定义的一个结构体类型（struct type）
 extern_ FILE	*Outfile;
 extern_ struct  token Token;
 #define TEXTLEN		512
 extern_ char Text[TEXTLEN+1];
 #define NSYMBOLS    1024
-extern_ struct symtable Gsym[NSYMBOLS];
+extern_ struct symtable Symtable[NSYMBOLS];
 #define NOREG	-1
 #define NOLABEL 0
 extern_ int O_dumpAST;//全局调试标志 

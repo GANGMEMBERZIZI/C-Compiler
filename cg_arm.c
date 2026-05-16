@@ -47,8 +47,8 @@ void cgpreamble() {
 void cgpostamble(){
     fprintf(Outfile,".L2:\n");
     for(int i=0;i<Globs;i++){
-        if (Gsym[i].stype==S_VARIABLE || Gsym[i].stype==S_ARRAY)
-            fprintf(Outfile,"\t.word %s\n",Gsym[i].name);
+        if (Symtable[i].stype==S_VARIABLE || Symtable[i].stype==S_ARRAY)
+            fprintf(Outfile,"\t.word %s\n",Symtable[i].name);
     }
     fprintf(Outfile, ".L3:\n");
   for (int i = 0; i < Intslot; i++) {
@@ -56,7 +56,7 @@ void cgpostamble(){
   }
 }
 void cgfuncpreamble(int id) {
-  char *name = Gsym[id].name;
+  char *name = Symtable[id].name;
   fprintf(Outfile,
 	  "\t.text\n"
 	  "\t.globl\t%s\n"
@@ -66,10 +66,10 @@ void cgfuncpreamble(int id) {
 	  "\tsub\tsp, sp, #8\n" "\tstr\tr0, [fp, #-8]\n", name, name, name);
 }
 void cgfuncpostamble(int id) {
-  if (Gsym[id].type == P_VOID) {
+  if (Symtable[id].type == P_VOID) {
     fprintf(Outfile, "\tmov\tr0, #0\n");
   }
-  cglabel(Gsym[id].endlabel);
+  cglabel(Symtable[id].endlabel);
   fputs("\tsub\tsp, fp, #4\n" "\tpop\t{fp, pc}\n" "\t.align\t2\n", Outfile);
 }
 int cgloadint(int value, int type) {
@@ -86,7 +86,7 @@ int cgloadint(int value, int type) {
 static void set_var_offset(int id){
     int offset=0;
     for (int i=0;i<id;i++){
-        if(Gsym[i].stype==S_VARIABLE){
+        if(Symtable[i].stype==S_VARIABLE){
             offset+=4;
         }
     }
@@ -95,7 +95,7 @@ static void set_var_offset(int id){
 int cgloadglob(int id, int op) {
   int r = alloc_register();
   set_var_offset(id);
-  switch (Gsym[id].type) {
+  switch (Symtable[id].type) {
   case P_CHAR:
     if (op == A_PREINC) {
       fprintf(Outfile, "\tldrb\t%s, [r3]\n", reglist[r]);
@@ -243,7 +243,7 @@ void cgprintint(int r) {
 
 int cgcall(int r, int id) {
   fprintf(Outfile, "\tmov\tr0, %s\n", reglist[r]);
-  fprintf(Outfile, "\tbl\t%s\n", Gsym[id].name);
+  fprintf(Outfile, "\tbl\t%s\n", Symtable[id].name);
   fprintf(Outfile, "\tmov\t%s, r0\n", reglist[r]);
   return (r);
 }
@@ -255,7 +255,7 @@ int cgstorglob(int r, int id) {
 
   set_var_offset(id);
 
-  switch (Gsym[id].type) {
+  switch (Symtable[id].type) {
   case P_CHAR:
     fprintf(Outfile, "\tstrb\t%s, [r3]\n", reglist[r]);
     break;
@@ -267,7 +267,7 @@ int cgstorglob(int r, int id) {
     fprintf(Outfile, "\tstr\t%s, [r3]\n", reglist[r]);
     break;
   default:
-    fatald("Bad type in cgloadglob:", Gsym[id].type);
+    fatald("Bad type in cgloadglob:", Symtable[id].type);
   }
   return (r);
 }
@@ -297,11 +297,11 @@ void cgglobstr(int l, char *strvalue) {
 
 void cgglobsym(int id) {
   int typesize;
-  typesize = cgprimsize(Gsym[id].type);
+  typesize = cgprimsize(Symtable[id].type);
 
-  fprintf(Outfile, "\t.data\n" "\t.globl\t%s\n", Gsym[id].name);
-  fprintf(Outfile, "%s:", Gsym[id].name);
-  for(int i=0; i<Gsym[id].size; i++){
+  fprintf(Outfile, "\t.data\n" "\t.globl\t%s\n", Symtable[id].name);
+  fprintf(Outfile, "%s:", Symtable[id].name);
+  for(int i=0; i<Symtable[id].size; i++){
     switch(typesize) {
       case 1: fprintf(Outfile, "\t.byte\t0\n"); break;
       case 4: fprintf(Outfile, "\t.long\t0\n"); break;
@@ -356,7 +356,7 @@ int cgwiden(int r, int oldtype, int newtype) {
   return (r);
 }
 void cgreturn(int reg, int id) {
-  switch (Gsym[id].type) {
+  switch (Symtable[id].type) {
     case P_VOID:
       fprintf(Outfile, "\tmov\tr0, #0\n");
       break;
@@ -369,9 +369,9 @@ void cgreturn(int reg, int id) {
       fprintf(Outfile, "\tmov\tr0, %s\n", reglist[reg]);
       break;
     default:
-      fatald("Bad function type in cgreturn:", Gsym[id].type);
+      fatald("Bad function type in cgreturn:", Symtable[id].type);
   }
-  cgjump(Gsym[id].endlabel);
+  cgjump(Symtable[id].endlabel);
 }
 int cgaddress(int id) {
   int r = alloc_register();

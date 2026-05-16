@@ -33,7 +33,7 @@ void cgpostamble(){
 
 }
 void cgfuncpreamble(int id) {//搭建栈帧
-  char *name = Gsym[id].name;
+  char *name = Symtable[id].name;
   fprintf(Outfile,
 	  "\t.text\n"//告诉汇编器，接下来的内容是 代码（指令），请把它放在代码段（Text Segment）。
 	  "\t.globl\t%s\n"
@@ -42,10 +42,10 @@ void cgfuncpreamble(int id) {//搭建栈帧
 	  "\tmovq\t%%rsp, %%rbp\n", name, name, name);//第一个name入口  pushq保存旧的栈底指针 movq 建立新的栈底
 }
 void cgfuncpostamble(int id) {
-  if (Gsym[id].type == P_VOID) {
+  if (Symtable[id].type == P_VOID) {
     fprintf(Outfile, "\tmovl\t$0, %%eax\n");  // 显式设置返回值为 0
   }
-  cglabel(Gsym[id].endlabel);//生成结束标签
+  cglabel(Symtable[id].endlabel);//生成结束标签
   fputs("\tpopq %rbp\n" "\tret\n", Outfile);//清理函数内存
 }
 int cgloadint(int value,int type){ //value 加载到寄存器的常量数值
@@ -56,47 +56,47 @@ int cgloadint(int value,int type){ //value 加载到寄存器的常量数值
 }
 int cgloadglob(int id,int op) {//把变量从内存读入寄存器（Read）。
   int r = alloc_register();
-  switch (Gsym[id].type) {
+  switch (Symtable[id].type) {
     case P_CHAR:
     if (op == A_PREINC)
-        fprintf(Outfile, "\tincb\t%s(\%%rip)\n", Gsym[id].name);
+        fprintf(Outfile, "\tincb\t%s(\%%rip)\n", Symtable[id].name);
       if (op == A_PREDEC)
-        fprintf(Outfile, "\tdecb\t%s(\%%rip)\n", Gsym[id].name);
-      fprintf(Outfile, "\tmovzbq\t%s(\%%rip), %s\n", Gsym[id].name,
+        fprintf(Outfile, "\tdecb\t%s(\%%rip)\n", Symtable[id].name);
+      fprintf(Outfile, "\tmovzbq\t%s(\%%rip), %s\n", Symtable[id].name,
               reglist[r]);//间接寻址 
       if (op == A_POSTINC)
-        fprintf(Outfile, "\tincb\t%s(\%%rip)\n", Gsym[id].name);
+        fprintf(Outfile, "\tincb\t%s(\%%rip)\n", Symtable[id].name);
       if (op == A_POSTDEC)
-        fprintf(Outfile, "\tdecb\t%s(\%%rip)\n", Gsym[id].name);
+        fprintf(Outfile, "\tdecb\t%s(\%%rip)\n", Symtable[id].name);
       break;
     case P_INT:
       if (op == A_PREINC)
-        fprintf(Outfile, "\tincl\t%s(\%%rip)\n", Gsym[id].name);
+        fprintf(Outfile, "\tincl\t%s(\%%rip)\n", Symtable[id].name);
       if (op == A_PREDEC)
-        fprintf(Outfile, "\tdecl\t%s(\%%rip)\n", Gsym[id].name);
-      fprintf(Outfile, "\tmovslq\t%s(\%%rip), %s\n", Gsym[id].name,
+        fprintf(Outfile, "\tdecl\t%s(\%%rip)\n", Symtable[id].name);
+      fprintf(Outfile, "\tmovslq\t%s(\%%rip), %s\n", Symtable[id].name,
               reglist[r]);
       if (op == A_POSTINC)
-        fprintf(Outfile, "\tincl\t%s(\%%rip)\n", Gsym[id].name);
+        fprintf(Outfile, "\tincl\t%s(\%%rip)\n", Symtable[id].name);
       if (op == A_POSTDEC)
-        fprintf(Outfile, "\tdecl\t%s(\%%rip)\n", Gsym[id].name);
+        fprintf(Outfile, "\tdecl\t%s(\%%rip)\n", Symtable[id].name);
       break;
     case P_LONG:
     case P_CHARPTR:
     case P_INTPTR:
     case P_LONGPTR:
     if (op == A_PREINC)
-        fprintf(Outfile, "\tincq\t%s(\%%rip)\n", Gsym[id].name);
+        fprintf(Outfile, "\tincq\t%s(\%%rip)\n", Symtable[id].name);
       if (op == A_PREDEC)
-        fprintf(Outfile, "\tdecq\t%s(\%%rip)\n", Gsym[id].name);
-      fprintf(Outfile, "\tmovq\t%s(\%%rip), %s\n", Gsym[id].name, reglist[r]);
+        fprintf(Outfile, "\tdecq\t%s(\%%rip)\n", Symtable[id].name);
+      fprintf(Outfile, "\tmovq\t%s(\%%rip), %s\n", Symtable[id].name, reglist[r]);
       if (op == A_POSTINC)
-        fprintf(Outfile, "\tincq\t%s(\%%rip)\n", Gsym[id].name);
+        fprintf(Outfile, "\tincq\t%s(\%%rip)\n", Symtable[id].name);
       if (op == A_POSTDEC)
-        fprintf(Outfile, "\tdecq\t%s(\%%rip)\n", Gsym[id].name);
+        fprintf(Outfile, "\tdecq\t%s(\%%rip)\n", Symtable[id].name);
       break;
     default:
-      fatald("Bad type in cgloadglob:", Gsym[id].type);
+      fatald("Bad type in cgloadglob:", Symtable[id].type);
   }
   return r;
 }
@@ -189,7 +189,7 @@ void cgprintint(int r){
 int cgcall(int r,int id){
     int outr=alloc_register();//分配一个新的通用寄存器
   fprintf(Outfile, "\tmovq\t%s, %%rdi\n", reglist[r]);//rdi 输入寄存器
-  fprintf(Outfile, "\tcall\t%s\n", Gsym[id].name);//把当前代码执行到的地址（返回地址）压入栈（Stack）中。CPU 跳转到 print 这个标签（Label）所在的内存地址去执行代码。 name是函数的名字
+  fprintf(Outfile, "\tcall\t%s\n", Symtable[id].name);//把当前代码执行到的地址（返回地址）压入栈（Stack）中。CPU 跳转到 print 这个标签（Label）所在的内存地址去执行代码。 name是函数的名字
   fprintf(Outfile, "\tmovq\t%%rax, %s\n", reglist[outr]);//%rax 里的值搬运（movq）到我们自己分配的通用寄存器（outr）里保存起来
   free_register(r);
   return (outr);
@@ -199,23 +199,23 @@ int cgshlconst(int r, int val) {
   return(r);//接着用这个寄存器 
 }
 int cgstorglob(int r, int id) {//把寄存器里的值写入内存（Write）。 写将内存中的变量值写入寄存器 再进行 add等操作 然后再写回内存
-  switch (Gsym[id].type) {
+  switch (Symtable[id].type) {
     case P_CHAR:
       fprintf(Outfile, "\tmovb\t%s, %s(\%%rip)\n", breglist[r],
-              Gsym[id].name); //%rip 下一条将要执行的指令在内存中的地址
+              Symtable[id].name); //%rip 下一条将要执行的指令在内存中的地址
       break;
     case P_INT:
       fprintf(Outfile, "\tmovl\t%s, %s(\%%rip)\n", dreglist[r],
-              Gsym[id].name);
+              Symtable[id].name);
       break;
     case P_LONG:
     case P_CHARPTR:
     case P_INTPTR:
     case P_LONGPTR:
-      fprintf(Outfile, "\tmovq\t%s, %s(\%%rip)\n", reglist[r], Gsym[id].name);
+      fprintf(Outfile, "\tmovq\t%s, %s(\%%rip)\n", reglist[r], Symtable[id].name);
       break;
     default:
-      fatald("Bad type in cgloadglob:", Gsym[id].type);
+      fatald("Bad type in cgloadglob:", Symtable[id].type);
   }
   return (r);
 }
@@ -228,10 +228,10 @@ int cgprimsize(int type){
 }
 void cgglobsym(int id) {
   int typesize;
-  typesize = cgprimsize(Gsym[id].type);
-  fprintf(Outfile, "\t.data\n" "\t.globl\t%s\n", Gsym[id].name);
-  fprintf(Outfile, "%s:", Gsym[id].name);
-  for(int i=0;i<Gsym[id].size;i++){//如果是 变量 size为1 数组循环输出长度  函数不会在data段
+  typesize = cgprimsize(Symtable[id].type);
+  fprintf(Outfile, "\t.data\n" "\t.globl\t%s\n", Symtable[id].name);
+  fprintf(Outfile, "%s:", Symtable[id].name);
+  for(int i=0;i<Symtable[id].size;i++){//如果是 变量 size为1 数组循环输出长度  函数不会在data段
   switch(typesize) {
     case 1: fprintf(Outfile, "\t.byte\t0\n"); break;
     case 4: fprintf(Outfile, "\t.long\t0\n"); break;
@@ -284,7 +284,7 @@ int cgwiden(int r,int oldtype,int newtype){
     return r;
 }
 void cgreturn (int reg,int id){//只在遇到 A_RETURN 节点时才调用
-    switch (Gsym[id].type) {
+    switch (Symtable[id].type) {
       case P_VOID:
       fprintf(Outfile, "\tmovl\t$0, %%eax\n");
       break;
@@ -298,14 +298,14 @@ void cgreturn (int reg,int id){//只在遇到 A_RETURN 节点时才调用
       fprintf(Outfile, "\tmovq\t%s, %%rax\n", reglist[reg]);
       break;
     default:
-      fatald("Bad function type in cgreturn:", Gsym[id].type);
+      fatald("Bad function type in cgreturn:", Symtable[id].type);
   }
-  cgjump(Gsym[id].endlabel);
+  cgjump(Symtable[id].endlabel);
 }
 int cgaddress(int id) {
   int r = alloc_register();
 
-  fprintf(Outfile, "\tleaq\t%s(%%rip), %s\n", Gsym[id].name, reglist[r]);//leap 计算源操作数的地址，并将其加载到目标寄存器中   它不读取内存中的值，只计算地址
+  fprintf(Outfile, "\tleaq\t%s(%%rip), %s\n", Symtable[id].name, reglist[r]);//leap 计算源操作数的地址，并将其加载到目标寄存器中   它不读取内存中的值，只计算地址
   return (r);
 }
 int cgderef(int r, int type) {//读取 y=*p

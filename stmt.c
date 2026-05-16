@@ -78,12 +78,12 @@ static struct ASTnode *for_statement(){
 }
 static struct ASTnode *return_statement(){
      struct ASTnode * tree;
-     if (Gsym[Functionid].type==P_VOID)
+     if (Symtable[Functionid].type==P_VOID)
      fatal("Can't return from a void function");
      match(T_RETURN,"return");
      lparen();
      tree=binexpr(0);//此时已经知道return的type是什么了
-     tree=modify_type(tree,Gsym[Functionid].type,0);
+     tree=modify_type(tree,Symtable[Functionid].type,0);
      if(tree==NULL)
      fatal("Incompatible type to print");
      tree = mkastunary(A_RETURN, P_NONE, tree, 0);

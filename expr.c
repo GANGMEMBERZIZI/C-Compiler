@@ -11,7 +11,7 @@ struct ASTnode *funccall(){
   }
   lparen();
   tree=binexpr(0);//解析expression
-  tree=mkastunary(A_FUNCCALL,Gsym[id].type,tree,id);//根节点为A_FUNCCAL 并且记录函数名变量的id
+  tree=mkastunary(A_FUNCCALL,Symtable[id].type,tree,id);//根节点为A_FUNCCAL 并且记录函数名变量的id
   rparen();
   return tree;
 } 
@@ -25,17 +25,17 @@ static int binastop(int tokentype){//在defs里T_add的枚举值是1 A_ADD的值
 struct ASTnode *array_access(){
     struct ASTnode *left,*right;
     int id;
-    if((id=findglob(Text))==-1||Gsym[id].stype!=S_ARRAY){
+    if((id=findglob(Text))==-1||Symtable[id].stype!=S_ARRAY){
         fatals("Undeclared array", Text);
     }
-    left=mkastleaf(A_ADDR,Gsym[id].type,id);//左子树 变量名 
+    left=mkastleaf(A_ADDR,Symtable[id].type,id);//左子树 变量名 
     scan(&Token);// '['
     right=binexpr(0);//解析索引
     match(T_RBRACKET,"]");
     if (!inttype(right->type))
     fatal("Array index is not of integer type");
     right = modify_type(right, left->type, A_ADD);//比例缩放 把数组变成 *(p+1) 把i变成偏移量
-    left=mkastnode(A_ADD,Gsym[id].type,left,NULL,right,0);//将数组的首地址与计算出的偏移量相加，从而得到目标元素的内存地址。
+    left=mkastnode(A_ADD,Symtable[id].type,left,NULL,right,0);//将数组的首地址与计算出的偏移量相加，从而得到目标元素的内存地址。
     left = mkastunary(A_DEREF, value_at(left->type), left, 0);//解引用
     return left;
 }
@@ -50,20 +50,20 @@ static struct ASTnode *postfix(){
             return array_access();
         }
         id=findglob(Text);
-        if(id==-1||Gsym[id].stype != S_VARIABLE){
+        if(id==-1||Symtable[id].stype != S_VARIABLE){
             fatals("Unknown variable", Text);
         }
         switch(Token.token){
             case T_INC:
             scan(&Token);//消耗++ -- 
-            n = mkastleaf(A_POSTINC, Gsym[id].type, id);
+            n = mkastleaf(A_POSTINC, Symtable[id].type, id);
             break;
             case T_DEC:
             scan(&Token);
-            n = mkastleaf(A_POSTDEC, Gsym[id].type, id);
+            n = mkastleaf(A_POSTDEC, Symtable[id].type, id);
             break;
             default:
-            n=mkastleaf(A_IDENT,Gsym[id].type,id);
+            n=mkastleaf(A_IDENT,Symtable[id].type,id);
         }
         return n;
 }
