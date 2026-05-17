@@ -105,12 +105,20 @@ static int genWHILE(struct ASTnode *n){
     return (cgloadglobstr(n->v.id));
     case A_IDENT://处理 已知变量a的值
     if (n->rvalue||parentASTop==A_DEREF)//如果需要加载值 或者 正在被解引用
+    if(Symtable[n->v.id].class == C_LOCAL){//局部变量
+      return cgloadlocal(n->v.id, n->op);
+    }else{
     return (cgloadglob(n->v.id,n->op));//则是为从全局变量中读取值生成汇编代码 例如在 y = x + 5; 中读取 x 的值
+    }
     else 
     return (NOREG);
     case A_ASSIGN://处理 类似 a=3+5;
     switch(n->right->op){
-      case A_IDENT: return cgstorglob(leftreg,n->right->v.id);//leftreg是 等号右边表达式算出来的“值”所在的寄存器编号
+      case A_IDENT: 
+      if (Symtable[n->right->v.id].class == C_LOCAL)
+	    return (cgstorlocal(leftreg, n->right->v.id));
+      else
+      return cgstorglob(leftreg,n->right->v.id);//leftreg是 等号右边表达式算出来的“值”所在的寄存器编号
       //因为 expr 左右树互换了  n->right->v.id是左边变量
       case A_DEREF: return (cgstorderef(leftreg, rightreg, n->right->type));//处理 *p=y 写入 leftreg是右边的值 rightreg是p内存地址 assign号左右子树交换了
       default: fatald("Can't A_ASSIGN in genAST(), op", n->op);
@@ -182,4 +190,10 @@ int genglobstr(char *strvalue){
 }
 int genprimsize(int type) {
   return (cgprimsize(type));
+}
+void genresetlocals(void) {
+  cgresetlocals();
+}
+int gengetlocaloffset(int type, int isparam) {
+  return (cggetlocaloffset(type, isparam));
 }

@@ -27,19 +27,25 @@ int parse_type(){
   }
   return type;
 }
-void var_declaration(int type){
+void var_declaration(int type,int islocal){
   int id;
   if(Token.token==T_LBRACKET){
     scan(&Token);
     if (Token.token==T_INTLIT){
-      id=addglob(Text,pointer_to(type),S_ARRAY,0,Token.intvalue);
-      genglobsym(id);
+      if(islocal){
+      addlocl(Text, pointer_to(type), S_ARRAY, 0, Token.intvalue);
+    }else{
+      addglob(Text, pointer_to(type), S_ARRAY, 0, Token.intvalue);
     }
+  }
     scan(&Token);
     match(T_RBRACKET,"]");
   }else{
-    id=addglob(Text,type,S_VARIABLE,0,1);
-    genglobsym(id);
+    if (islocal) {
+      addlocl(Text, type, S_VARIABLE, 0, 1);
+    } else {
+      addglob(Text, type, S_VARIABLE, 0, 1);
+    }
   }
   semi();
 }
@@ -75,7 +81,7 @@ void global_declarations(){//全局变量
       }
       genAST(tree,NOLABEL,0);
     }else{
-      var_declaration(type);//是变量
+      var_declaration(type,0);//是变量 而且不是函数内的 说明是全局
     }
     if(Token.token==T_E0F)
     break;

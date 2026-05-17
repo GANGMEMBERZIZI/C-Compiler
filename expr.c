@@ -6,7 +6,7 @@
 struct ASTnode *funccall(){
     struct ASTnode *tree;
     int id;
-     if ((id = findglob(Text)) == -1) {
+     if ((id = findsymbol(Text)) == -1) {
     fatals("Undeclared function", Text);
   }
   lparen();
@@ -25,7 +25,7 @@ static int binastop(int tokentype){//在defs里T_add的枚举值是1 A_ADD的值
 struct ASTnode *array_access(){
     struct ASTnode *left,*right;
     int id;
-    if((id=findglob(Text))==-1||Symtable[id].stype!=S_ARRAY){
+    if((id=findsymbol(Text))==-1||Symtable[id].stype!=S_ARRAY){
         fatals("Undeclared array", Text);
     }
     left=mkastleaf(A_ADDR,Symtable[id].type,id);//左子树 变量名 
@@ -49,7 +49,7 @@ static struct ASTnode *postfix(){
         if(Token.token==T_LBRACKET){//如果是[ 就是数组
             return array_access();
         }
-        id=findglob(Text);
+        id=findsymbol(Text);
         if(id==-1||Symtable[id].stype != S_VARIABLE){
             fatals("Unknown variable", Text);
         }

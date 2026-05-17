@@ -17,7 +17,7 @@ static int newglob(){//已经定义（或者说已经被分配了槽位）的全
     }
     return p;
 }
-int findclol(char *s){
+int findlocl(char *s){
     int i;
     for(i=Locls+1;i<NSYMBOLS;i++){
         if(*s==*Symtable[i].name&&!strcmp(s,Symtable[i].name))
@@ -33,24 +33,48 @@ static int newclol(){
     }
     return p;
 }
-int addglob(char *name,int type,int stype,int class,int endlabel,int size,int posn){
-    int y;
-    if((y=findglob(name))!=-1){//如果已经存在了 直接返回
-        return y;
+static void updatesym(int slot, char *name, int type, int stype,
+		      int class, int endlabel, int size, int posn) {
+  if (slot < 0 || slot >= NSYMBOLS)
+    fatal("Invalid symbol slot number in updatesym()");
+  Symtable[slot].name = strdup(name);
+  Symtable[slot].type = type;
+  Symtable[slot].stype = stype;
+  Symtable[slot].class = class;
+  Symtable[slot].endlabel = endlabel;
+  Symtable[slot].size = size;
+  Symtable[slot].posn = posn;
+}
+int addglob(char *name,int type,int stype,int endlabel,int size){
+    int slot;
+    if((slot=findglob(name))!=-1){//如果已经存在了 直接返回
+        return slot;
     }
-    y=newglob();
-    Symtable[y].name=strdup(name);//strdup 函数根据 name 指针所指向的字符串内容，在堆上开辟了一块新的内存，将字符串内容复制到新内存中，并将这个新内存的地址赋值给了 Symtable[y].name
+    slot=newglob();
+    updatesym(slot,name,type,stype,C_GLOBAL,endlabel,size,0);
+    genglobsym(slot);
     //Symtable[i].name 内存很有可能不连续
     //name 是局部遍历 所以不能直接相等
-    Symtable[y].type=type;//类型
-    Symtable[y].stype=stype;//是函数还是变量
-    Symtable[y].class=class;
-    Symtable[y].endlabel = endlabel;
-    Symtable[y].size=size;
-    Symtable[y].posn=posn;
-    return y;
+    return slot;
 }
 // 1. 普通变量：size = 1（1个元素）
 // 2. 数组：size = 元素个数
 // 3. 函数：size = 0（不需要数据空间）
+int addlocl(char *name, int type, int stype, int endlabel, int size) {
+  int slot, posn;
+  if ((slot = findlocl(name)) != -1)
+    return (slot);
+  slot = newclol();
+  posn = gengetlocaloffset(type, 0);	
+  updatesym(slot, name, type, stype, C_LOCAL, endlabel, size, posn);
+  return (slot);
+}
+int findsymbol(char *s){//局部在前 全局在后
+    int slot;
+    slot=findlocl(s);
+    if(slot==-1){
+        slot=findglob(s);
+    }
+    return slot;
+}
 

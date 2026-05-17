@@ -1,11 +1,55 @@
 #include "defs.h"
 #include "data.h"
 #include "decl.h"
+enum { no_seg, text_seg, data_seg } currSeg = no_seg;
+void cgtextseg() {
+  if (currSeg != text_seg) {//如果是函数 只调用一次就行
+    fputs("\t.text\n", Outfile);//text段
+    currSeg = text_seg;//当前是函数
+  }
+}
+
+void cgdataseg() {
+  if (currSeg != data_seg) {//变量声明data 段
+    fputs("\t.data\n", Outfile);
+    currSeg = data_seg;
+  }
+}
+static int localOffset;
+static int stackOffset;
+void cgresetlocals(void) {//因为每个函数都有自己独立的栈帧（Stack Frame）。新开一个函数，就意味着我们要从一个崭新的 RBP 基址重新往下挖坑。所以游标必须无情归零！
+  localOffset = 0;
+}
+//物理上只有一个 RBP 寄存器
+// 当 main 呼叫 func_A 时，CPU 刚跳进 func_A 的第一秒，你的编译器必须强制生成这两条汇编指令：
+// push rbp 
+// 物理动作：把当前 RBP 寄存器里的值（也就是 main 函数的基址），强行压入堆栈（内存）里保存起来！
+// 这个存在内存里的值，就叫 saved RBP。
+// mov rbp, rsp 
+// 函数尾声（还政于朝）
+// 当 func_A 执行到 return 时，它必须在自己灰飞烟灭之前，把那根独一无二的权杖完美地还给 main：
+// mov rsp, rbp （清理违建）
+// 物理动作：把 RSP 拉回 RBP 的位置，瞬间秒杀 func_A 栈帧里的所有局部变量空间。
+// pop rbp （迎回先皇）
+// 物理动作：从堆栈的顶部（刚刚存遗嘱的地方），把那个属于 main 的旧坐标弹出来，重新塞回物理 RBP 寄存器里！
+// 瞬间，物理 RBP 再次指向了 main 的栈帧底部。main 函数感觉就像什么都没发生过一样，继续完美运行！
+// 物理动作：既然前任的坐标已经安全存入堆栈了，现在的物理 RBP 寄存器自由了！直接把当前的栈顶 RSP 赋值给它，RBP 瞬间变成了 func_A 的专属基准线！
+// 疯狂嵌套调用的程序（比如 A 调 B，B 调 C，C 调 D），你去查看内存堆栈，你会发现一个极其壮观的物理奇迹：
+// 虽然 CPU 里只有一个 RBP 寄存器，但在巨大的堆栈内存里，每一个栈帧的底部，都静静地躺着一个 saved RBP。
+// D 的堆栈里存着 C 的 RBP
+// C 的堆栈里存着 B 的 RBP
+// B 的堆栈里存着 A 的 RBP
+// 它们在内存里形成了一条完美的单向链表（Linked List）
+int cggetlocaloffset(int type, int isparam) { //isparam==0 普通局部变量 ==1 函数参数
+  localOffset += (cgprimsize(type) > 4) ? cgprimsize(type) : 4;
+  return (-localOffset);//用rbp-offset 就是变量的地址
+}
+#define NUMFREEREGS 4
 //将gen.c 的汇编指令写下out.s gcc 调用cpu生成可执行文件
-static int freereg[4];//这个表示空闲的寄存器 1表示空 freereg[0]代表%r8.。。。。
-static char *reglist[4]={"%r8","%r9","%r10","%r11"};//提供了这些寄存器在实际汇编代码中的名称 64位 long类型
-static char *breglist[4] = { "%r8b", "%r9b", "%r10b", "%r11b" };//最低一个字节寄存器 char类型
-static char *dreglist[4] = { "%r8d", "%r9d", "%r10d", "%r11d" };//32位 int 
+static int freereg[NUMFREEREGS];//这个表示空闲的寄存器 1表示空 freereg[0]代表%r8.。。。。
+static char *reglist[]={"%r8","%r9","%r10","%r11"};//提供了这些寄存器在实际汇编代码中的名称 64位 long类型
+static char *breglist[] = { "%r8b", "%r9b", "%r10b", "%r11b" };//最低一个字节寄存器 char类型
+static char *dreglist[] = { "%r8d", "%r9d", "%r10d", "%r11d" };//32位 int 
 void freeall_registers(){//将寄存器都标记寄存器正在使用中。
     freereg[0]=freereg[1]=freereg[2]=freereg[3]=1;
 }
@@ -27,25 +71,24 @@ static void free_register(int reg){  //释放非空闲的寄存器
 }
 void cgpreamble() {//这是在预装驱动程序。它手动写死了一段汇编代码，让你的编译器生成的程序天生就拥有“打印整数”的能力，而不需要用户自己去实现复杂的 I/O 操作。
   freeall_registers();
-  fputs("\t.text\n", Outfile);
 }
 void cgpostamble(){
 
 }
-void cgfuncpreamble(int id) {//搭建栈帧
+void cgfuncpreamble(int id) {//搭建栈帧 函数序言
   char *name = Symtable[id].name;
+  cgtextseg();//text段 .text 告诉汇编器，接下来的内容是 代码（指令），请把它放在代码段（Text Segment）。
+  stackOffset= (localOffset+15) & ~15;//cpu只允许16字节 这是字节对齐
   fprintf(Outfile,
-	  "\t.text\n"//告诉汇编器，接下来的内容是 代码（指令），请把它放在代码段（Text Segment）。
 	  "\t.globl\t%s\n"
 	  "\t.type\t%s, @function\n"//函数
 	  "%s:\n" "\tpushq\t%%rbp\n"
-	  "\tmovq\t%%rsp, %%rbp\n", name, name, name);//第一个name入口  pushq保存旧的栈底指针 movq 建立新的栈底
+	  "\tmovq\t%%rsp, %%rbp\n"
+    "\taddq\t$%d,%%rsp\n", name, name, name,-stackOffset);//第一个name入口  pushq保存旧的栈底指针 movq 建立新的栈底
 }
-void cgfuncpostamble(int id) {
-  if (Symtable[id].type == P_VOID) {
-    fprintf(Outfile, "\tmovl\t$0, %%eax\n");  // 显式设置返回值为 0
-  }
+void cgfuncpostamble(int id) {//函数尾声
   cglabel(Symtable[id].endlabel);//生成结束标签
+  fprintf(Outfile, "\taddq\t$%d,%%rsp\n", stackOffset);
   fputs("\tpopq %rbp\n" "\tret\n", Outfile);//清理函数内存
 }
 int cgloadint(int value,int type){ //value 加载到寄存器的常量数值
@@ -99,6 +142,54 @@ int cgloadglob(int id,int op) {//把变量从内存读入寄存器（Read）。
       fatald("Bad type in cgloadglob:", Symtable[id].type);
   }
   return r;
+}
+int cgloadlocal(int id, int op) {//局部变量
+  int r = alloc_register();
+
+  switch (Symtable[id].type) {
+    case P_CHAR:
+      if (op == A_PREINC)
+	fprintf(Outfile, "\tincb\t%d(%%rbp)\n", Symtable[id].posn);
+      if (op == A_PREDEC)
+	fprintf(Outfile, "\tdecb\t%d(%%rbp)\n", Symtable[id].posn);
+      fprintf(Outfile, "\tmovzbq\t%d(%%rbp), %s\n", Symtable[id].posn,
+	      reglist[r]);
+      if (op == A_POSTINC)
+	fprintf(Outfile, "\tincb\t%d(%%rbp)\n", Symtable[id].posn);
+      if (op == A_POSTDEC)
+	fprintf(Outfile, "\tdecb\t%d(%%rbp)\n", Symtable[id].posn);
+      break;
+    case P_INT:
+      if (op == A_PREINC)
+	fprintf(Outfile, "\tincl\t%d(%%rbp)\n", Symtable[id].posn);
+      if (op == A_PREDEC)
+	fprintf(Outfile, "\tdecl\t%d(%%rbp)\n", Symtable[id].posn);
+      fprintf(Outfile, "\tmovslq\t%d(%%rbp), %s\n", Symtable[id].posn,
+	      reglist[r]);
+      if (op == A_POSTINC)
+	fprintf(Outfile, "\tincl\t%d(%%rbp)\n", Symtable[id].posn);
+      if (op == A_POSTDEC)
+	fprintf(Outfile, "\tdecl\t%d(%%rbp)\n", Symtable[id].posn);
+      break;
+    case P_LONG:
+    case P_CHARPTR:
+    case P_INTPTR:
+    case P_LONGPTR:
+      if (op == A_PREINC)
+	fprintf(Outfile, "\tincq\t%d(%%rbp)\n", Symtable[id].posn);
+      if (op == A_PREDEC)
+	fprintf(Outfile, "\tdecq\t%d(%%rbp)\n", Symtable[id].posn);
+      fprintf(Outfile, "\tmovq\t%d(%%rbp), %s\n", Symtable[id].posn,
+	      reglist[r]);
+      if (op == A_POSTINC)
+	fprintf(Outfile, "\tincq\t%d(%%rbp)\n", Symtable[id].posn);
+      if (op == A_POSTDEC)
+	fprintf(Outfile, "\tdecq\t%d(%%rbp)\n", Symtable[id].posn);
+      break;
+    default:
+      fatald("Bad type in cgloadlocal:", Symtable[id].type);
+  }
+  return (r);
 }
 int cgloadglobstr(int id){//给定一个字符串标签号 将其地址加载到寄存器里
   int r=alloc_register();//分配空的寄存器
@@ -219,6 +310,28 @@ int cgstorglob(int r, int id) {//把寄存器里的值写入内存（Write）。
   }
   return (r);
 }
+int cgstorlocal(int r, int id) {
+  switch (Symtable[id].type) {
+    case P_CHAR:
+      fprintf(Outfile, "\tmovb\t%s, %d(%%rbp)\n", breglist[r],
+	      Symtable[id].posn);
+      break;
+    case P_INT:
+      fprintf(Outfile, "\tmovl\t%s, %d(%%rbp)\n", dreglist[r],
+	      Symtable[id].posn);
+      break;
+    case P_LONG:
+    case P_CHARPTR:
+    case P_INTPTR:
+    case P_LONGPTR:
+      fprintf(Outfile, "\tmovq\t%s, %d(%%rbp)\n", reglist[r],
+	      Symtable[id].posn);
+      break;
+    default:
+      fatald("Bad type in cgstorlocal:", Symtable[id].type);
+  }
+  return (r);
+}
 //P_NONE, P_VOID, P_CHAR, P_INT, P_LONG
 static int psize[] = { 0, 0, 1, 4, 8, 8, 8, 8, 8 };
 int cgprimsize(int type){
@@ -228,8 +341,11 @@ int cgprimsize(int type){
 }
 void cgglobsym(int id) {
   int typesize;
+  if (Symtable[id].stype == S_FUNCTION)//如果是函数 直接return
+    return;
   typesize = cgprimsize(Symtable[id].type);
-  fprintf(Outfile, "\t.data\n" "\t.globl\t%s\n", Symtable[id].name);
+  cgdataseg();
+  fprintf(Outfile,"\t.globl\t%s\n", Symtable[id].name);
   fprintf(Outfile, "%s:", Symtable[id].name);
   for(int i=0;i<Symtable[id].size;i++){//如果是 变量 size为1 数组循环输出长度  函数不会在data段
   switch(typesize) {
@@ -304,7 +420,9 @@ void cgreturn (int reg,int id){//只在遇到 A_RETURN 节点时才调用
 }
 int cgaddress(int id) {
   int r = alloc_register();
-
+  if(Symtable[id].class == C_LOCAL)
+  fprintf(Outfile, "\tleaq\t%d(%%rbp), %s\n", Symtable[id].posn,reglist[r]);//局部变量在栈帧里 全局在data和bss段里
+  else
   fprintf(Outfile, "\tleaq\t%s(%%rip), %s\n", Symtable[id].name, reglist[r]);//leap 计算源操作数的地址，并将其加载到目标寄存器中   它不读取内存中的值，只计算地址
   return (r);
 }
