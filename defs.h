@@ -20,7 +20,7 @@ enum{//这个是词法分析识别input的字符 扫描器 不分析语法 所�
   // Structural tokens
   T_INTLIT, T_STRLIT, T_SEMI, T_IDENT,
   T_LBRACE, T_RBRACE, T_LPAREN, T_RPAREN,
-  T_LBRACKET, T_RBRACKET
+  T_LBRACKET, T_RBRACKET,T_COMMA
 };
 struct token            
 {
@@ -59,7 +59,7 @@ enum{//记录定义的是函数还是变量
     S_VARIABLE,S_FUNCTION,S_ARRAY
 };
 enum{
-    C_GLOBAL=1,C_LOCAL
+    C_GLOBAL=1,C_LOCAL,C_PARAM         //全局 局部 函数参数
 };
 struct symtable{//符号表
     char *name;//变量的名字
@@ -69,4 +69,5 @@ struct symtable{//符号表
     int endlabel; //函数结束标签
     int size;//个数
     int posn;//posn是相对于rbp的offset
+    #define nelems posn
 };

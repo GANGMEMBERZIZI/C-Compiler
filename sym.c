@@ -5,6 +5,7 @@
 int findglob(char *s){//s是整个字符串，*s是字符串首地址,寻找s在不在Symtable里，有的输出索引，没有输出-1 
     int i;
     for(i=0;i<Globs;i++){
+        if (Symtable[i].class == C_PARAM) continue;//因为函数声明要检查变量数对不对 局部会清理 所以 全局 和局部都要进符号表
         if(*s==*Symtable[i].name&&!strcmp(s,Symtable[i].name))//短路求值 由于strcmp遍历整个字符串，比较费时，先*s比较第一个字符，然后在strcmp会省时 两个条件取交集
         return i;
     }
@@ -33,6 +34,9 @@ static int newclol(){
     }
     return p;
 }
+void freeloclsyms(void) {//清除局部变量 把指针 移回数组末端 覆盖掉
+  Locls = NSYMBOLS - 1;
+}
 static void updatesym(int slot, char *name, int type, int stype,
 		      int class, int endlabel, int size, int posn) {
   if (slot < 0 || slot >= NSYMBOLS)
@@ -60,14 +64,19 @@ int addglob(char *name,int type,int stype,int endlabel,int size){
 // 1. 普通变量：size = 1（1个元素）
 // 2. 数组：size = 元素个数
 // 3. 函数：size = 0（不需要数据空间）
-int addlocl(char *name, int type, int stype, int endlabel, int size) {
-  int slot, posn;
-  if ((slot = findlocl(name)) != -1)
-    return (slot);
-  slot = newclol();
-  posn = gengetlocaloffset(type, 0);	
-  updatesym(slot, name, type, stype, C_LOCAL, endlabel, size, posn);
-  return (slot);
+int addlocl(char *name, int type, int stype, int isparam, int size) {
+  int localslot, globalslot;
+  if ((localslot = findlocl(name)) != -1)
+    return (-1);
+  localslot = newclol();
+  if(isparam){//如果是函数参数
+    updatesym(localslot,name,type,stype,C_PARAM,0,size,0);//局部表
+    globalslot = newglob();
+    updatesym(globalslot,name,type,stype,C_PARAM,0,size,0);//全局表
+  }else{
+    updatesym(localslot,name,type,stype,C_LOCAL,0,size,0);
+  }
+  return localslot;
 }
 int findsymbol(char *s){//局部在前 全局在后
     int slot;

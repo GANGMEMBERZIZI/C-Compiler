@@ -1,56 +1,77 @@
-	.data
-	.globl	a
-a:	.word	0
-	.globl	b
-b:	.word	0
-	.globl	c
-c:	.word	0
 	.text
-	.globl	main
+	.global	main
 	.type	main, %function
 main:
-	push	{fp, lr}
-	add	fp, sp, #4
-	sub	sp, sp, #16
-	mov	r4, #10
+	push	{r4, r5, r6, r7, fp, lr}
+	mov	fp, sp
+	str	r0, [fp, #-4]
+	strb	r1, [fp, #-8]
+	str	r2, [fp, #-12]
+	str	r3, [fp, #-16]
+	sub	sp, sp, #32
+	mov	r4, #13
+	str	r4, [fp, #-4]
+	ldr	r4, [fp, #-4]
+	mov	r0, r4
+	bl	printint
+	mov	r5, r0
+	mov	r4, #23
+	strb	r4, [fp, #-8]
+	ldrb	r4, [fp, #-8]
+	mov	r0, r4
+	bl	printint
+	mov	r5, r0
+	mov	r4, #34
 	str	r4, [fp, #-12]
-	mov	r4, #20
-	str	r4, [fp, #-8]
-	mov	r4, #30
-	strb	r4, [fp, #-4]
 	ldr	r4, [fp, #-12]
 	mov	r0, r4
 	bl	printint
 	mov	r5, r0
-	ldr	r4, [fp, #-8]
+	mov	r4, #44
+	str	r4, [fp, #-16]
+	ldr	r4, [fp, #-16]
 	mov	r0, r4
 	bl	printint
 	mov	r5, r0
-	ldrb	r4, [fp, #-4]
+	mov	r4, #54
+	str	r4, [fp, #24]
+	ldr	r4, [fp, #24]
 	mov	r0, r4
 	bl	printint
 	mov	r5, r0
-	mov	r4, #5
-	ldr	r3, =a
-	str	r4, [r3]
-	mov	r4, #15
-	ldr	r3, =b
-	str	r4, [r3]
-	mov	r4, #25
-	ldr	r3, =c
-	str	r4, [r3]
-	ldr	r3, =a
-	ldr	r4, [r3]
+	mov	r4, #64
+	str	r4, [fp, #28]
+	ldr	r4, [fp, #28]
 	mov	r0, r4
 	bl	printint
 	mov	r5, r0
-	ldr	r3, =b
-	ldr	r4, [r3]
+	mov	r4, #74
+	str	r4, [fp, #32]
+	ldr	r4, [fp, #32]
 	mov	r0, r4
 	bl	printint
 	mov	r5, r0
-	ldr	r3, =c
-	ldr	r4, [r3]
+	mov	r4, #84
+	str	r4, [fp, #36]
+	ldr	r4, [fp, #36]
+	mov	r0, r4
+	bl	printint
+	mov	r5, r0
+	mov	r4, #94
+	str	r4, [fp, #-20]
+	ldr	r4, [fp, #-20]
+	mov	r0, r4
+	bl	printint
+	mov	r5, r0
+	mov	r4, #95
+	str	r4, [fp, #-24]
+	ldr	r4, [fp, #-24]
+	mov	r0, r4
+	bl	printint
+	mov	r5, r0
+	mov	r4, #96
+	str	r4, [fp, #-28]
+	ldr	r4, [fp, #-28]
 	mov	r0, r4
 	bl	printint
 	mov	r5, r0
@@ -58,5 +79,5 @@ main:
 	mov	r0, r4
 	b	L1
 L1:
-	sub	sp, fp, #4
-	pop	{fp, pc}
+	mov	sp, fp
+	pop	{r4, r5, r6, r7, fp, pc}

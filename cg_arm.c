@@ -27,21 +27,23 @@ void cgresetlocals(void) {
   localOffset = 0;
 }
 
-int cggetlocaloffset(int type, int isparam) {
+static int newlocaloffset(int type) {
   localOffset += (cgprimsize(type) > 4) ? cgprimsize(type) : 4;
   return (-localOffset);
 }
 
 // Register management
 #define NUMFREEREGS 4
+#define FIRSTPARAMREG 7
 static int freereg[NUMFREEREGS];
-static char *reglist[] = { "r4", "r5", "r6", "r7" };
+static char *reglist[] = { "r4", "r5", "r6", "r7",   // 4 个自由劳工（打杂计算用）
+    "r3", "r2", "r1", "r0" };// 4 个传参通道（倒序排列）
 
 void freeall_registers(void) {
   freereg[0] = freereg[1] = freereg[2] = freereg[3] = 1;
 }
 
-static int alloc_register(void) {
+static int alloc_register() {
   for (int i = 0; i < NUMFREEREGS; i++) {
     if (freereg[i]) {
       freereg[i] = 0;
@@ -67,22 +69,43 @@ void cgpostamble() {
 
 void cgfuncpreamble(int id) {
   char *name = Symtable[id].name;
+  int i;
+  int paramOffset = 24;//ARM 压栈了 6 个寄存器 (r4-r7, fp, lr)，共 6 * 4 = 24 字节。
+  int paramReg = FIRSTPARAMREG;
   cgtextseg();
-  stackOffset = (localOffset + 15) & ~15;
+  localOffset= 0;
   fprintf(Outfile,
-    "\t.globl\t%s\n"
-    "\t.type\t%s, %%function\n"
+    "\t.global\t%s\n"
+    "\t.type\t%s, %%function\n"   // @在某些ARM汇编器里是注释符，改用 %function 更安全
     "%s:\n"
-    "\tpush\t{fp, lr}\n"
-    "\tadd\tfp, sp, #4\n"
-    "\tsub\tsp, sp, #%d\n",
-    name, name, name, stackOffset);
+    "\tpush\t{r4, r5, r6, r7, fp, lr}\n" // 保护打杂劳工、备份老 fp 和返回地址 lr
+    "\tmov\tfp, sp\n", name, name, name);
+    for (i = NSYMBOLS - 1; i > Locls; i--) {
+    if (Symtable[i].class != C_PARAM)
+      break;
+    if (i < NSYMBOLS - 4) // x86是6个，ARM 硬件限制最多只有 4 个寄存器传参！
+      break;
+    Symtable[i].posn = newlocaloffset(Symtable[i].type);
+    cgstorlocal(paramReg--, i); // 生成类似 str r0, [fp, #-8] 的代码
+  }
+  for (; i > Locls; i--) {
+    if (Symtable[i].class == C_PARAM) {
+      Symtable[i].posn = paramOffset;
+      paramOffset += 4; // x86是8字节，ARM32 作为 32 位系统，参数槽是 4 字节对齐！
+    } else {
+      Symtable[i].posn = newlocaloffset(Symtable[i].type);
+    }
+  }
+  stackOffset = (localOffset + 7) & ~7;//8字节对齐 x86是16
+  if (stackOffset > 0) {
+    fprintf(Outfile, "\tsub\tsp, sp, #%d\n", stackOffset);
 }
+  }
 
 void cgfuncpostamble(int id) {
   cglabel(Symtable[id].endlabel);
-  fprintf(Outfile, "\tsub\tsp, fp, #4\n");
-  fprintf(Outfile, "\tpop\t{fp, pc}\n");
+  fprintf(Outfile, "\tmov\tsp, fp\n");
+  fprintf(Outfile, "\tpop\t{r4, r5, r6, r7, fp, pc}\n");
 }
 
 int cgloadint(int value, int type) {

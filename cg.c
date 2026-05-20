@@ -40,21 +40,27 @@ void cgresetlocals(void) {//因为每个函数都有自己独立的栈帧（Stac
 // C 的堆栈里存着 B 的 RBP
 // B 的堆栈里存着 A 的 RBP
 // 它们在内存里形成了一条完美的单向链表（Linked List）
-int cggetlocaloffset(int type, int isparam) { //isparam==0 普通局部变量 ==1 函数参数
+static int newlocaloffset(int type) { //isparam==0 普通局部变量 ==1 函数参数
   localOffset += (cgprimsize(type) > 4) ? cgprimsize(type) : 4;
   return (-localOffset);//用rbp-offset 就是变量的地址
 }
-#define NUMFREEREGS 4
+#define NUMFREEREGS 4  //日常算术运算（比如算 a + b * c）的草稿纸。
+#define FIRSTPARAMREG 9  //第一个参数寄存器的位置
 //将gen.c 的汇编指令写下out.s gcc 调用cpu生成可执行文件
 static int freereg[NUMFREEREGS];//这个表示空闲的寄存器 1表示空 freereg[0]代表%r8.。。。。
-static char *reglist[]={"%r8","%r9","%r10","%r11"};//提供了这些寄存器在实际汇编代码中的名称 64位 long类型
-static char *breglist[] = { "%r8b", "%r9b", "%r10b", "%r11b" };//最低一个字节寄存器 char类型
-static char *dreglist[] = { "%r8d", "%r9d", "%r10d", "%r11d" };//32位 int 
+//处理第 N 个参数时，公式就是：reglist[FIRSTPARAMREG - n] 所以要倒着写
+static char *reglist[]={"%r10", "%r11", "%r12", "%r13", "%r9", "%r8", "%rcx", "%rdx", "%rsi",
+"%rdi"};//提供了这些寄存器在实际汇编代码中的名称 64位 long类型
+static char *breglist[] = { "%r10b", "%r11b", "%r12b", "%r13b", "%r9b", "%r8b", "%cl", "%dl", "%sil",
+"%dil"};//最低一个字节寄存器 char类型
+static char *dreglist[] = { "%r10d", "%r11d", "%r12d", "%r13d", "%r9d", "%r8d", "%ecx", "%edx",
+"%esi", "%edi" };//32位 int 
+//后 6 个（索引 4~9）：神圣的传参通道 (%r9 到 %rdi) 6 个特权寄存器！当要调用函数或者接收参数时，必须使用它们
 void freeall_registers(){//将寄存器都标记寄存器正在使用中。
     freereg[0]=freereg[1]=freereg[2]=freereg[3]=1;
 }
 static int alloc_register(){//可用的寄存器列表，寻找第一个空闲的寄存器。一旦找到，它就会将该寄存器标记为“已使用”，并返回其索引。如果所有寄存器都已被占用，它将打印错误消息并终止程序
-    for(int i=0;i<4;i++){
+    for(int i=0;i<NUMFREEREGS;i++){
         if(freereg[i]){
             freereg[i]=0;
             return i;
@@ -77,14 +83,34 @@ void cgpostamble(){
 }
 void cgfuncpreamble(int id) {//搭建栈帧 函数序言
   char *name = Symtable[id].name;
+  int i;
+  int paramOffset = 16;//栈溢出参数的坐标原点,字节对齐 rbp高地址 函数参数 低地址是局部变量
+  int paramReg = FIRSTPARAMREG;// 任何推入的参数从此栈偏移量开始
   cgtextseg();//text段 .text 告诉汇编器，接下来的内容是 代码（指令），请把它放在代码段（Text Segment）。
-  stackOffset= (localOffset+15) & ~15;//cpu只允许16字节 这是字节对齐
+  localOffset= 0;
   fprintf(Outfile,
 	  "\t.globl\t%s\n"
 	  "\t.type\t%s, @function\n"//函数
 	  "%s:\n" "\tpushq\t%%rbp\n"
-	  "\tmovq\t%%rsp, %%rbp\n"
-    "\taddq\t$%d,%%rsp\n", name, name, name,-stackOffset);//第一个name入口  pushq保存旧的栈底指针 movq 建立新的栈底
+	  "\tmovq\t%%rsp, %%rbp\n", name, name, name);//第一个name入口  pushq保存旧的栈底指针 movq 建立新的栈底
+    for(i=NSYMBOLS-1;i > Locls;i--){
+      if (Symtable[i].class != C_PARAM)
+        break;
+      if (i < NSYMBOLS - 6)//如果超过了 6 就不在寄存器了
+        break;
+      Symtable[i].posn = newlocaloffset(Symtable[i].type);
+      cgstorlocal(paramReg--, i);//匹配索引
+    }
+    for (; i > Locls; i--) {//局部变量
+    if (Symtable[i].class == C_PARAM) {
+      Symtable[i].posn = paramOffset;
+      paramOffset += 8;//函数参数的内存对齐 8个字节 高地址
+    } else {
+      Symtable[i].posn = newlocaloffset(Symtable[i].type);
+    }
+  }
+  stackOffset = (localOffset + 15) & ~15;//低地址内存对齐 16字节
+  fprintf(Outfile, "\taddq\t$%d,%%rsp\n", -stackOffset);
 }
 void cgfuncpostamble(int id) {//函数尾声
   cglabel(Symtable[id].endlabel);//生成结束标签
@@ -420,7 +446,7 @@ void cgreturn (int reg,int id){//只在遇到 A_RETURN 节点时才调用
 }
 int cgaddress(int id) {
   int r = alloc_register();
-  if(Symtable[id].class == C_LOCAL)
+  if(Symtable[id].class == C_LOCAL||Symtable[id].class == C_PARAM)
   fprintf(Outfile, "\tleaq\t%d(%%rbp), %s\n", Symtable[id].posn,reglist[r]);//局部变量在栈帧里 全局在data和bss段里
   else
   fprintf(Outfile, "\tleaq\t%s(%%rip), %s\n", Symtable[id].name, reglist[r]);//leap 计算源操作数的地址，并将其加载到目标寄存器中   它不读取内存中的值，只计算地址

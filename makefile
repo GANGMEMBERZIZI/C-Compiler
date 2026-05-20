@@ -27,3 +27,13 @@ armtest: comp1arm input.txt
 	./comp1arm input.txt           
 	arm-linux-gnueabi-gcc -o out out.s lib/printint.c -static
 	qemu-arm ./out
+	
+test27: comp1 input27a.c input27b.c
+	./comp1 input27a.c
+	cc -o out input27b.c out.s lib/printint.c 
+	./out
+
+test272: comp1arm input27a.c input27b.c
+	./comp1 input27a.c
+	cc -o out input27b.c out.s lib/printint.c 
+	./out

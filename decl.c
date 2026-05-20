@@ -27,7 +27,7 @@ int parse_type(){
   }
   return type;
 }
-void var_declaration(int type,int islocal){
+void var_declaration(int type,int islocal,int isparam){
   int id;
   if(Token.token==T_LBRACKET){
     scan(&Token);
@@ -42,20 +42,44 @@ void var_declaration(int type,int islocal){
     match(T_RBRACKET,"]");
   }else{
     if (islocal) {
-      addlocl(Text, type, S_VARIABLE, 0, 1);
+      if(addlocl(Text, type, S_VARIABLE, isparam, 1)==-1)
+      fatals("Duplicate local variable declaration", Text);
     } else {
       addglob(Text, type, S_VARIABLE, 0, 1);
     }
   }
-  semi();
+}
+// 解析函数名后括号内的参数。
+// 将它们作为符号添加到符号表中，并返回参数的数量。
+static int param_declaration(){
+  int type;
+  int paramcnt=0;
+  while(Token.token!=T_RPAREN){
+    type=parse_type();
+    ident();
+    var_declaration(type, 1, 1);
+    paramcnt++;
+    switch(Token.token){
+      case T_COMMA:
+      scan(&Token);
+      break;
+      case T_RPAREN:
+      break;
+      default:
+      fatald("Unexpected token in parameter list", Token.token);
+    }
+  }
+  return paramcnt;
 }
 struct ASTnode *function_declaration(int type){
     struct ASTnode *tree,*finalstmt;
-    int nameslot,endlabel;
+    int nameslot,endlabel,paramcnt;
     endlabel=genlabel();//记录的是函数的终点出口
     nameslot=addglob(Text,type,S_FUNCTION,endlabel,0);//添加函数名字为变量,nameslot是变量数组索引
     Functionid=nameslot;//告诉编译器 我在解析那个函数 这个包括了 函数名和类型
     lparen();
+    paramcnt= param_declaration();
+    Symtable[nameslot].nelems= paramcnt;
     rparen();
     tree=compound_statement();
     if(type!=P_VOID){
@@ -80,8 +104,10 @@ void global_declarations(){//全局变量
         fprintf(stdout, "\n\n");//在屏幕（标准输出）上打印两个换行符
       }
       genAST(tree,NOLABEL,0);
+      freeloclsyms();
     }else{
-      var_declaration(type,0);//是变量 而且不是函数内的 说明是全局
+      var_declaration(type,0,0);//是变量 而且不是函数内的 说明是全局
+      semi();
     }
     if(Token.token==T_E0F)
     break;

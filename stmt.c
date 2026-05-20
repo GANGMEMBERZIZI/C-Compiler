@@ -98,7 +98,8 @@ static struct ASTnode *single_statement(void) {//这个是 for括号里的第三
     case T_LONG:
     type=parse_type();
     ident();
-      var_declaration(type,1);//局部变量
+      var_declaration(type,1,0);//局部变量
+      semi();
       return (NULL);		
     case T_IF:
       return (if_statement());
