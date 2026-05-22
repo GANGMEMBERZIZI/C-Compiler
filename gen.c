@@ -39,8 +39,21 @@ static int genWHILE(struct ASTnode *n){
   cgjump(Lstart);//返回开始处 进行新的判断
   cglabel(Lend);//这意味着当条件为假时跳转到 Lend 标签后，程序会从这里继续执行，这也就是循环结束后的代码。
   return NOREG;
+}
+static int gen_funccall(struct ASTnode* n){
+  struct ASTnode* gluetree=n->left;//消耗 A_FUNCCALL 节点
+  int reg;
+  int numargs=0;//函数参数的个数
+  while(gluetree){
+    reg=genAST(gluetree->right,NOLABEL,gluetree->op);//解析expr 返回寄存器编号
+    cgcopyarg(reg, gluetree->v.size);
+    if(numargs==0)
+    numargs=gluetree->v.size;//函数参数的个数
+    genfreeregs();
+    gluetree=gluetree->left;
+  }
+  return cgcall(n->v.id,numargs);
 } 
-
  int genAST(struct ASTnode *n,int label,int parentASTop){  //将高级语言代码一次性地翻译成目标机器的汇编代码或机器代码，然后生成一个可执行文件
     //代码不是传递值，而是传递 注册标识符。例如，将值加载到寄存器中，然后 返回具有加载值的寄存器的标识。
     int leftreg,rightreg;
@@ -129,7 +142,7 @@ static int genWHILE(struct ASTnode *n){
     cgreturn(leftreg,Functionid);
     return NOREG;//不需要返回值
     case A_FUNCCALL:
-    return cgcall(leftreg,n->v.id);
+    return gen_funccall(n);
     case A_ADDR:
     return (cgaddress(n->v.id));
     case A_DEREF:

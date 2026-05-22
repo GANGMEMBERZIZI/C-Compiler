@@ -1,16 +1,16 @@
-int main(int a, char b, long c, int d, int e, int f, int g, int h) {
-  int i; int j; int k;
+int param8(int a, int b, int c, int d, int e, int f, int g, int h) {
+  printint(a); printint(b); printint(c); printint(d);
+  printint(e); printint(f); printint(g); printint(h);
+  return(0);
+}
 
-  a= 13; printint(a);
-  b= 23; printint(b);
-  c= 34; printint(c);
-  d= 44; printint(d);
-  e= 54; printint(e);
-  f= 64; printint(f);
-  g= 74; printint(g);
-  h= 84; printint(h);
-  i= 94; printint(i);
-  j= 95; printint(j);
-  k= 96; printint(k);
+int fred(int a, int b, int c) {
+  return(a+b+c);
+}
+
+int main() {
+  int x;
+  param8(1, 2, 3, 5, 8, 13, 21, 34);
+  x= fred(2, 3, 4); printint(x);
   return(0);
 }

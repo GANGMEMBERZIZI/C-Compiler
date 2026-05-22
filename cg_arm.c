@@ -387,16 +387,22 @@ void cgprintint(int r) {
   fprintf(Outfile, "\tbl\tprintint\n");
   free_register(r);
 }
-
-int cgcall(int r, int id) {
-  int outr = alloc_register();
-  fprintf(Outfile, "\tmov\tr0, %s\n", reglist[r]);
-  fprintf(Outfile, "\tbl\t%s\n", Symtable[id].name);
-  fprintf(Outfile, "\tmov\t%s, r0\n", reglist[outr]);
-  free_register(r);
-  return outr;
+void cgcopyarg(int r, int argposn) {
+    if (argposn > 4) {
+        fprintf(Outfile, "\tstr\t%s, [sp, #-4]!\n", reglist[r]);
+    } else {
+        fprintf(Outfile, "\tmov\t%s, %s\n", reglist[FIRSTPARAMREG - argposn + 1], reglist[r]);
+    }
 }
-
+int cgcall(int id, int numargs) {
+    int outr = alloc_register();
+    fprintf(Outfile, "\tbl\t%s\n", Symtable[id].name);
+    if (numargs > 4) {
+        fprintf(Outfile, "\tadd\tsp, sp, #%d\n", 4 * (numargs - 4));
+    }
+    fprintf(Outfile, "\tmov\t%s, r0\n", reglist[outr]);
+    return (outr);
+}
 int cgshlconst(int r, int val) {
   fprintf(Outfile, "\tlsl\t%s, %s, #%d\n", reglist[r], reglist[r], val);
   return r;

@@ -1,5 +1,3 @@
-// Function prototypes for all compiler files
-// Copyright (c) 2019 Warren Toomey, GPL3
 
 // scan.c
 void reject_token(struct token *t);
@@ -43,7 +41,8 @@ int cgsub(int r1, int r2);
 int cgmul(int r1, int r2);
 int cgdiv(int r1, int r2);
 int cgshlconst(int r, int val);
-int cgcall(int r, int id);
+int cgcall(int id, int numargs);
+void cgcopyarg(int r, int argposn);
 int cgstorglob(int r, int id);
 int cgstorlocal(int r, int id);
 void cgglobsym(int id);

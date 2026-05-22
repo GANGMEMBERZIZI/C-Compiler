@@ -303,12 +303,22 @@ void cgprintint(int r){
     fprintf(Outfile,"\tcall\tprintint\n");//call 调用函数，调用printint函数 打印rdi寄存器
     free_register(r);//释放
 }
-int cgcall(int r,int id){
+void cgcopyarg(int r,int argposn){
+  if(argposn>6){//超过6个 压入栈
+    fprintf(Outfile,"\tpushq\t%s\n",reglist[r]);
+  }else{
+    fprintf(Outfile, "\tmovq\t%s, %s\n", reglist[r],
+    reglist[FIRSTPARAMREG - argposn + 1]);//寄存器
+  }
+}
+int cgcall(int id,int numargs){
     int outr=alloc_register();//分配一个新的通用寄存器
-  fprintf(Outfile, "\tmovq\t%s, %%rdi\n", reglist[r]);//rdi 输入寄存器
-  fprintf(Outfile, "\tcall\t%s\n", Symtable[id].name);//把当前代码执行到的地址（返回地址）压入栈（Stack）中。CPU 跳转到 print 这个标签（Label）所在的内存地址去执行代码。 name是函数的名字
-  fprintf(Outfile, "\tmovq\t%%rax, %s\n", reglist[outr]);//%rax 里的值搬运（movq）到我们自己分配的通用寄存器（outr）里保存起来
-  free_register(r);
+    fprintf(Outfile, "\tcall\t%s\n", Symtable[id].name);//函数名
+    if(numargs>6){
+      fprintf(Outfile, "\taddq\t$%d, %%rsp\n", 8*(numargs-6));//除了6个 其他的压入栈 每个占8个字节
+    }else{
+      fprintf(Outfile, "\tmovq\t%%rax, %s\n", reglist[outr]);
+    }
   return (outr);
 }
 int cgshlconst(int r, int val) {

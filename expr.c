@@ -3,14 +3,34 @@
 #include "decl.h"
 //构建表达式的ast
  // function_call: identifier '(' expression ')' ;
+static struct ASTnode *expression_list(){
+    struct ASTnode* tree=NULL;
+    struct ASTnode* child=NULL;
+    int exprcount=0;
+    while(Token.token!=T_RPAREN){
+        child=binexpr(0);//这样可以让expr4 先解析 然后 压入栈底
+        exprcount++;
+        tree=mkastnode(A_GLUE,P_NONE,tree,NULL,child,exprcount);
+        switch(Token.token){
+            case T_COMMA:
+            scan(&Token);
+            break;
+            case T_RPAREN:
+            break;
+            default:
+            fatald("Unexpected token in expression list", Token.token);
+        }
+    }
+    return tree;
+} 
 struct ASTnode *funccall(){
     struct ASTnode *tree;
     int id;
-     if ((id = findsymbol(Text)) == -1) {
+     if ((id = findsymbol(Text)) == -1|| Symtable[id].stype != S_FUNCTION) {
     fatals("Undeclared function", Text);
   }
-  lparen();
-  tree=binexpr(0);//解析expression
+  lparen();//消耗( 然后调用expression_list 构建树
+  tree=expression_list();
   tree=mkastunary(A_FUNCCALL,Symtable[id].type,tree,id);//根节点为A_FUNCCAL 并且记录函数名变量的id
   rparen();
   return tree;
@@ -116,7 +136,7 @@ static int OpPrec[] = {
 //数组只会包含那些具有运算符语义的令牌的优先级，而其他非运算符令牌则不会包含在内
 static int op_precedence(int tokentype){
     int prec;
-    if(tokentype>=T_VOID){
+    if(tokentype > T_SLASH){
         fatald("Token with no precedence in op_precedence:", tokentype);
     }
     prec=OpPrec[tokentype];//tokentype 此时枚举变成数 刚好是数组下标
@@ -193,8 +213,8 @@ struct  ASTnode *binexpr(int ptp){ //构建AST ptp是符号优先级，一开始
     int tokentype;
     left=prefix();//解析取地址符 指针 primary  优先级高的会在下面 左右子树 并没有优先级区分
     tokentype=Token.token; 
-    if(tokentype==T_SEMI||tokentype==T_RPAREN||tokentype == T_RBRACKET){
-        left->rvalue=1;//在表达式解析完成的瞬间，将“代表位置”的节点（l-value）自动转化为“代表数值”的节点（r-value），确保代码生成阶段能正确地从内存中加载数据
+    if(tokentype==T_SEMI||tokentype==T_RPAREN||tokentype==T_RBRACKET||tokentype==T_COMMA){
+        left->rvalue=1;//在表达式解析完成的瞬间，将"代表位置"的节点（l-value）自动转化为"代表数值"的节点（r-value），确保代码生成阶段能正确地从内存中加载数据
         return left;
     }
     while(op_precedence(tokentype)>ptp||(rightassoc(tokentype) && op_precedence(tokentype)==ptp)){ //左结合当这个符号的优先级大于上一个符号的优先级时 或者 右结合 连等
@@ -223,7 +243,7 @@ struct  ASTnode *binexpr(int ptp){ //构建AST ptp是符号优先级，一开始
         }
         left=mkastnode(binastop(tokentype),left->type,left,NULL,right,0);//连接子树 拓宽和缩放只更新左子树
         tokentype=Token.token;//更新token 如果token为e0f直接返回left
-        if(tokentype == T_SEMI||tokentype==T_RPAREN||tokentype==T_RBRACKET){
+        if(tokentype == T_SEMI||tokentype==T_RPAREN||tokentype==T_RBRACKET||tokentype==T_COMMA){
             left->rvalue=1;//结束时 整棵树为右值
             return left;
         }
